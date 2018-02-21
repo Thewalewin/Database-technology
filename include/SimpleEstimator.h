@@ -14,6 +14,8 @@ class SimpleEstimator : public Estimator {
 
 public:
     explicit SimpleEstimator(std::shared_ptr<SimpleGraph> &g);
+
+    //a destructor of your estimator in which you'll clean up all the stuff you used during your estimation. No memleaks please!
     ~SimpleEstimator() = default;
 
     void prepare() override ;
