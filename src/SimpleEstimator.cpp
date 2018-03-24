@@ -9,21 +9,52 @@ SimpleEstimator::SimpleEstimator(std::shared_ptr<SimpleGraph> &g){
     graph = g;
 }
 
+// sort on the second item in the pair, then on the first (ascending order)
+bool SimpleEstimator::sortPairs(const std::pair<uint32_t,uint32_t> &a, const std::pair<uint32_t,uint32_t> &b) {
+    if (a.second < b.second) return true;
+    if (a.second == b.second) return a.first < b.first;
+    return false;
+}
+
 void SimpleEstimator::prepare() {
 	// queryPath.clear();
 	// pathLength = 0;
 	uint32_t noLabels = graph->getNoLabels();
-	labelSums.resize(noLabels);
+	labelStats.resize(noLabels);
 	labelDistribution.resize(noLabels);
 
 	for (auto source : graph->adj) {
-		for (auto pair : source) {
-			labelSums[pair.first] = labelSums[pair.first] + 1;
+        uint32_t prevLabel = 0;
+        bool first = true;
+
+		std::sort(source.begin(), source.end(), SimpleEstimator::sortPairs);
+
+		for (const auto &pair : source) {
+			if (first || !(prevLabel == pair.first)){
+				first = false;
+				prevLabel = pair.first;
+				labelStats[pair.first].startNodes++;
+			}
+			labelStats[pair.first].edges++;
 		}
 	}
 
-	for (uint32_t i; i < noLabels; i++) {
-		labelDistribution[i] = (double)labelSums[i] / (double)graph->getNoEdges();
+	for (auto destination : graph->reverse_adj) {
+		uint32_t prevLabel = 0;
+        bool first = true;
+
+		std::sort(destination.begin(), destination.end(), SimpleEstimator::sortPairs);
+		for (const auto &pair : destination) {
+			if (first || !(prevLabel == pair.first)) {
+				first = false;
+				prevLabel = pair.first;
+				labelStats[pair.first].endNodes++;
+			}
+		}
+	}
+	
+	for (uint32_t i=0; i < noLabels; i++) {
+		labelDistribution[i] = (double)labelStats[i].edges / (double)graph->getNoEdges();
 	}
 }
 
@@ -52,7 +83,7 @@ SimpleEstimator::EstimatorPair SimpleEstimator::estimate_aux(RPQTree *q) {
             std::cerr << "Label parsing failed!" << std::endl;
         }
 		ep.rightLabel = ep.leftLabel;
-		ep.cardinalityEstimate = labelSums[ep.leftLabel];
+		ep.cardinalityEstimate = labelStats[ep.leftLabel].edges;
 		return ep;
 	}
 
@@ -69,7 +100,7 @@ SimpleEstimator::EstimatorPair SimpleEstimator::estimate_aux(RPQTree *q) {
 		join.leftLabel = left.leftLabel;
 		join.rightLabel = right.rightLabel;
 		join.cardinalityEstimate = std::min(Tright * Tleft * Vleft, 
-											Tleft * Tright * Vright);
+                                            Tleft * Tright * Vright);
 		return join;
 	}
 }
@@ -79,5 +110,5 @@ cardStat SimpleEstimator::estimate(RPQTree *q) {
 	// pathLength = 0;
 	EstimatorPair result = estimate_aux(q);
 
-    return cardStat {labelSums[result.leftLabel], result.cardinalityEstimate, labelSums[result.rightLabel]};
+    return cardStat {labelStats[result.leftLabel].startNodes, result.cardinalityEstimate, labelStats[result.rightLabel].endNodes};
 }
