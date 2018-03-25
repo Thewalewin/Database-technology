@@ -21,6 +21,8 @@ class SimpleEstimator : public Estimator {
 	struct EstimatorPair {
 		uint32_t leftLabel;
 		uint32_t rightLabel;
+		uint32_t startNodes;
+		uint32_t endNodes;
 		uint32_t cardinalityEstimate;
 	};
 	

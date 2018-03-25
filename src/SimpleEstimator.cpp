@@ -105,8 +105,9 @@ SimpleEstimator::EstimatorPair SimpleEstimator::estimate_aux(RPQTree *q) {
             std::cerr << "Label parsing failed!" << std::endl;
         }
 		ep.rightLabel = ep.leftLabel;
+		ep.startNodes = labelStats[ep.leftLabel].startNodes;
+		ep.endNodes = labelStats[ep.leftLabel].endNodes;
 		ep.cardinalityEstimate = labelStats[ep.leftLabel].edges;
-		std::cout << "\nEstimating " << ep.cardinalityEstimate << " possible edges for label " << ep.leftLabel;
 		return ep;
 	}
 
@@ -116,20 +117,17 @@ SimpleEstimator::EstimatorPair SimpleEstimator::estimate_aux(RPQTree *q) {
 		EstimatorPair join;
 		
 		uint32_t Tleft = left.cardinalityEstimate;
-		double Vleft = (double) labelStats[left.rightLabel].endNodes / (double) nrOfVertices;
+		double Vleft = (double) 1 / (double) left.endNodes;
 		uint32_t Tright = right.cardinalityEstimate;
-		double Vright = (double) labelStats[right.leftLabel].startNodes / (double) nrOfVertices;
+		double Vright = (double) 1 / (double) right.startNodes;
 
 		join.leftLabel = left.leftLabel;
 		join.rightLabel = right.rightLabel;
-		std::cout << "\n";
-		std::cout << "TL: " << Tleft << ", ";
-		std::cout << "VL: " << Vleft << ", ";
-		std::cout << "TR: " << Tright << ",";
-		std::cout << "VR: " << Vright << "\n";
+		join.startNodes = left.startNodes;
+		join.endNodes = right.endNodes;		
 
-		join.cardinalityEstimate = std::min(Tright * Tleft * Vleft, 
-                                            Tleft * Tright * Vright);
+		join.cardinalityEstimate = std::min(Tright * Tleft * Vleft, Tleft * Tright * Vright);
+		
 		return join;
 	}
 }
