@@ -5,6 +5,7 @@
 #include "SimpleGraph.h"
 #include "SimpleEstimator.h"
 #include <cmath>
+#include <set>
 SimpleEstimator::SimpleEstimator(std::shared_ptr<SimpleGraph> &g){
     graph = g;
 }
@@ -17,50 +18,71 @@ bool SimpleEstimator::sortPairs(const std::pair<uint32_t,uint32_t> &a, const std
 }
 
 void SimpleEstimator::prepare() {
-	// queryPath.clear();
-	// pathLength = 0;
 	uint32_t noLabels = graph->getNoLabels();
+	nrOfVertices = graph->getNoVertices();
 	labelStats.resize(noLabels);
-	labelDistribution.resize(noLabels);
-
-	for (auto source : graph->adj) {
+	std::vector<std::set<uint32_t>> nodes(noLabels);
+	
+	/*
+	 * Count the amount of distinct edges (v1,v2) per label.
+	 * Per label, count the amount of distinct start and end nodes
+	 */
+	for (auto &source : graph->adj) {
         uint32_t prevLabel = 0;
+		uint32_t prevTarget = 0;
         bool first = true;
 
 		std::sort(source.begin(), source.end(), SimpleEstimator::sortPairs);
-
 		for (const auto &pair : source) {
-			if (first || !(prevLabel == pair.first)){
+			if (first || !(prevLabel == pair.first && prevTarget == pair.second)){
 				first = false;
 				prevLabel = pair.first;
-				labelStats[pair.first].startNodes++;
-			}
-			labelStats[pair.first].edges++;
+				prevTarget = pair.second;
+				labelStats[pair.first].edges++;
+
+				auto it = nodes[pair.first].find(pair.second);
+				if(it == nodes[pair.first].end()){
+					// node was not in set yet.
+					nodes[pair.first].emplace(pair.second);
+				}
+			}	
 		}
 	}
+	// Save nr of endnodes per label
+	for (uint32_t i = 0; i < noLabels; i++) {
+		labelStats[i].endNodes = nodes[i].size();
+		nodes[i].clear();
+	}
 
-	for (auto destination : graph->reverse_adj) {
+	for (auto &destination : graph->reverse_adj) {
 		uint32_t prevLabel = 0;
+		uint32_t prevSource = 0;
         bool first = true;
 
 		std::sort(destination.begin(), destination.end(), SimpleEstimator::sortPairs);
 		for (const auto &pair : destination) {
-			if (first || !(prevLabel == pair.first)) {
+			if (first || !(prevLabel == pair.first && prevSource == pair.second)) {
 				first = false;
 				prevLabel = pair.first;
-				labelStats[pair.first].endNodes++;
+				prevSource = pair.second;
+
+				auto it = nodes[pair.first].find(pair.second);
+				if (it == nodes[pair.first].end()){
+					//Node was not in set yet
+					nodes[pair.first].emplace(pair.second);
+				}
 			}
 		}
 	}
-	
-	for (uint32_t i=0; i < noLabels; i++) {
-		labelDistribution[i] = (double)labelStats[i].edges / (double)graph->getNoEdges();
+
+	// Save nr of startnodes per label
+	for (uint32_t i = 0; i < noLabels; i++) {
+		labelStats[i].startNodes = nodes[i].size();
 	}
 }
 
 /*
- * Retreive the queried path and put it into a vector, which makes it
- * easier to perform the estimations based on the path. 
+ * Recurse over the querytree and calculate the cardinality estimate for each subtree. 
  */
 SimpleEstimator::EstimatorPair SimpleEstimator::estimate_aux(RPQTree *q) {
 	if(q == nullptr) {
@@ -84,6 +106,7 @@ SimpleEstimator::EstimatorPair SimpleEstimator::estimate_aux(RPQTree *q) {
         }
 		ep.rightLabel = ep.leftLabel;
 		ep.cardinalityEstimate = labelStats[ep.leftLabel].edges;
+		std::cout << "\nEstimating " << ep.cardinalityEstimate << " possible edges for label " << ep.leftLabel;
 		return ep;
 	}
 
@@ -93,12 +116,18 @@ SimpleEstimator::EstimatorPair SimpleEstimator::estimate_aux(RPQTree *q) {
 		EstimatorPair join;
 		
 		uint32_t Tleft = left.cardinalityEstimate;
-		double Vleft = 1.0f;
+		double Vleft = (double) labelStats[left.rightLabel].endNodes / (double) nrOfVertices;
 		uint32_t Tright = right.cardinalityEstimate;
-		double Vright = labelDistribution[right.leftLabel];
+		double Vright = (double) labelStats[right.leftLabel].startNodes / (double) nrOfVertices;
 
 		join.leftLabel = left.leftLabel;
 		join.rightLabel = right.rightLabel;
+		std::cout << "\n";
+		std::cout << "TL: " << Tleft << ", ";
+		std::cout << "VL: " << Vleft << ", ";
+		std::cout << "TR: " << Tright << ",";
+		std::cout << "VR: " << Vright << "\n";
+
 		join.cardinalityEstimate = std::min(Tright * Tleft * Vleft, 
                                             Tleft * Tright * Vright);
 		return join;

@@ -25,10 +25,10 @@ class SimpleEstimator : public Estimator {
 	};
 	
 	std::vector<LabelStats> labelStats;
-	std::vector<double> labelDistribution;
 	
 	EstimatorPair estimate_aux(RPQTree *q);
-
+	uint32_t nrOfVertices;
+	
 	static bool sortPairs(const std::pair<uint32_t,uint32_t> &a, const std::pair<uint32_t,uint32_t> &b);
 public:
     explicit SimpleEstimator(std::shared_ptr<SimpleGraph> &g);
