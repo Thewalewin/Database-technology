@@ -54,12 +54,12 @@ void SimpleEstimator::prepare() {
 		nodes[i].clear();
 	}
 
-	for (auto &destination : graph->reverse_adj) {
+	for (const auto &destination : graph->reverse_adj) {
 		uint32_t prevLabel = 0;
 		uint32_t prevSource = 0;
         bool first = true;
 
-		std::sort(destination.begin(), destination.end(), SimpleEstimator::sortPairs);
+		//std::sort(destination.begin(), destination.end(), SimpleEstimator::sortPairs);
 		for (const auto &pair : destination) {
 			if (first || !(prevLabel == pair.first && prevSource == pair.second)) {
 				first = false;
