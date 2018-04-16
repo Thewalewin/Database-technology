@@ -137,5 +137,5 @@ cardStat SimpleEstimator::estimate(RPQTree *q) {
 	// pathLength = 0;
 	EstimatorPair result = estimate_aux(q);
 
-    return cardStat {labelStats[result.leftLabel].startNodes, result.cardinalityEstimate, labelStats[result.rightLabel].endNodes};
+    return cardStat {result.startNodes, result.cardinalityEstimate, result.endNodes};
 }
