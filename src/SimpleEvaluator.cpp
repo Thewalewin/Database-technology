@@ -4,6 +4,7 @@
 
 #include "SimpleEstimator.h"
 #include "SimpleEvaluator.h"
+using StringVec = std::vector<std::string>;
 
 SimpleEvaluator::SimpleEvaluator(std::shared_ptr<SimpleGraph> &g) {
 
@@ -140,7 +141,84 @@ std::shared_ptr<SimpleGraph> SimpleEvaluator::evaluate_aux(RPQTree *q) {
     return nullptr;
 }
 
+StringVec SimpleEvaluator::getQueryNodeList(RPQTree *query) {
+    if (query->isLeaf()){
+        return StringVec {query->data};
+    }
+    if (query->isConcat()) {
+        auto leftQueryNodeList = getQueryNodeList(query->left);
+        auto rightQueryNodeList = getQueryNodeList(query->right);
+
+        leftQueryNodeList.insert(leftQueryNodeList.end(), rightQueryNodeList.begin(), rightQueryNodeList.end());
+        return leftQueryNodeList;
+    }
+}
+
+void printVector(const StringVec& v) {
+    std::cout << "\n";
+    for (const auto& i : v) {
+        std::cout << i << " ";
+    }
+    std::cout << "\n";
+}
+
+/**
+ * Generate all permutations of logical plans possible with the nodes provided
+ * a node can be a single vertex in the graph or a subquery. 
+ * Returns a Vector with strings that represent a logical plan. This vector contains 
+ * duplicate logical plans.
+ */
+StringVec SimpleEvaluator::makeLogicalPlans(const StringVec& nodes) {
+    // Base case, there is only one node left, so no other permutation can be made.
+    if (nodes.size() == 1) {
+        return nodes;
+    }
+    else {
+        StringVec planList;
+        /*
+         * For each pair of neighboring nodes, create all the possible plans
+         * when you merge these nodes into a single node.
+         */
+        for (uint32_t i = 0; i < nodes.size() - 1; i++) {
+            // Merge neighboring nodes and create new nodeList
+            StringVec nodeList(nodes.begin(), nodes.begin() + i);
+            std::string s("(/ " + nodes[i] + " " + nodes[i+1] + " )");
+            nodeList.push_back(s);
+            nodeList.insert(nodeList.end(), nodes.begin() + i+2, nodes.end());
+
+            // Recurse with the new "nodes" and append the result to the list of plans
+            StringVec permutations = makeLogicalPlans(nodeList);
+            planList.insert(planList.end(), permutations.begin(), permutations.end());
+        }
+        return planList;
+    }
+}
+
+/**
+ * Returns a query tree that represents the cheapest logical plan for the given query.
+ */
+RPQTree* SimpleEvaluator::getLogicalPlan(RPQTree *query) {
+    StringVec queryNodeList = getQueryNodeList(query);
+
+    // Create all possible plans, sort them and remove duplicates.
+    StringVec logicalPlans = makeLogicalPlans(queryNodeList);
+    sort(logicalPlans.begin(), logicalPlans.end());
+    logicalPlans.erase(unique(logicalPlans.begin(), logicalPlans.end()), logicalPlans.end());
+
+    for (auto plan : logicalPlans) {
+        
+    }    
+    // For all permutations
+        // Create rpqtree
+        // Calculate Cardinality estimate
+        // If beter than stored => store
+    // Return best plan
+    return nullptr;
+}
+
 cardStat SimpleEvaluator::evaluate(RPQTree *query) {
+    RPQTree* logicalPlan = getLogicalPlan(query);
+
     auto res = evaluate_aux(query);
     return SimpleEvaluator::computeStats(res);
 }
