@@ -182,7 +182,7 @@ StringVec SimpleEvaluator::makeLogicalPlans(const StringVec& nodes) {
         for (uint32_t i = 0; i < nodes.size() - 1; i++) {
             // Merge neighboring nodes and create new nodeList
             StringVec nodeList(nodes.begin(), nodes.begin() + i);
-            std::string s("(/ " + nodes[i] + " " + nodes[i+1] + " )");
+            std::string s("(" + nodes[i] + "/" + nodes[i+1] + ")");
             nodeList.push_back(s);
             nodeList.insert(nodeList.end(), nodes.begin() + i+2, nodes.end());
 
@@ -205,20 +205,29 @@ RPQTree* SimpleEvaluator::getLogicalPlan(RPQTree *query) {
     sort(logicalPlans.begin(), logicalPlans.end());
     logicalPlans.erase(unique(logicalPlans.begin(), logicalPlans.end()), logicalPlans.end());
 
+    // Find best logical plan and return this.
+    uint32_t cardinalityEstimate = UINT32_MAX;
+    RPQTree* bestPlan = nullptr;
     for (auto plan : logicalPlans) {
-        
+        RPQTree* r = RPQTree::strToTree(plan);
+        cardStat c = est->estimate(r);
+        if (c.noPaths < cardinalityEstimate) {
+            bestPlan = r;
+            cardinalityEstimate = c.noPaths;
+        }
     }    
-    // For all permutations
-        // Create rpqtree
-        // Calculate Cardinality estimate
-        // If beter than stored => store
-    // Return best plan
-    return nullptr;
+    return bestPlan;
 }
 
 cardStat SimpleEvaluator::evaluate(RPQTree *query) {
     RPQTree* logicalPlan = getLogicalPlan(query);
 
-    auto res = evaluate_aux(query);
+    if(logicalPlan == nullptr){
+        //Something went wrong
+        std::cerr << "Error: getLogicalPlan(query) returned nullptr,";
+        std::cerr << " evaluating with default plan.";
+        logicalPlan == query;
+    }
+    auto res = evaluate_aux(logicalPlan);
     return SimpleEvaluator::computeStats(res);
 }
