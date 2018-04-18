@@ -20,6 +20,7 @@ class SimpleEvaluator : public Evaluator {
 
 public:
     using StringVec = std::vector<std::string>;
+    std::unordered_map<std::string, cardStat> cache;
     explicit SimpleEvaluator(std::shared_ptr<SimpleGraph> &g);
     ~SimpleEvaluator() = default;
 
@@ -32,8 +33,9 @@ public:
     static std::shared_ptr<SimpleGraph> project(uint32_t label, bool inverse, std::shared_ptr<SimpleGraph> &g);
     static std::shared_ptr<SimpleGraph> join(std::shared_ptr<SimpleGraph> &left, std::shared_ptr<SimpleGraph> &right);
 
+    std::string getQueryString(const StringVec& nodeList);
     StringVec makeLogicalPlans(const StringVec& nodes);
-    RPQTree* getLogicalPlan(RPQTree *query);
+    RPQTree* getLogicalPlan(const StringVec& queryNodeList);
     StringVec getQueryNodeList(RPQTree *query);
     static cardStat computeStats(std::shared_ptr<SimpleGraph> &g);
 

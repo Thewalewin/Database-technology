@@ -197,8 +197,7 @@ StringVec SimpleEvaluator::makeLogicalPlans(const StringVec& nodes) {
 /**
  * Returns a query tree that represents the cheapest logical plan for the given query.
  */
-RPQTree* SimpleEvaluator::getLogicalPlan(RPQTree *query) {
-    StringVec queryNodeList = getQueryNodeList(query);
+RPQTree* SimpleEvaluator::getLogicalPlan(const StringVec& queryNodeList) {
 
     // Create all possible plans, sort them and remove duplicates.
     StringVec logicalPlans = makeLogicalPlans(queryNodeList);
@@ -219,15 +218,36 @@ RPQTree* SimpleEvaluator::getLogicalPlan(RPQTree *query) {
     return bestPlan;
 }
 
-cardStat SimpleEvaluator::evaluate(RPQTree *query) {
-    RPQTree* logicalPlan = getLogicalPlan(query);
+std::string SimpleEvaluator::getQueryString(const StringVec& nodeList){
+    std::string queryString;
 
-    if(logicalPlan == nullptr){
-        //Something went wrong
-        std::cerr << "Error: getLogicalPlan(query) returned nullptr,";
-        std::cerr << " evaluating with default plan.";
-        logicalPlan == query;
+    for (auto s : nodeList) {
+        queryString.append(s);
     }
-    auto res = evaluate_aux(logicalPlan);
-    return SimpleEvaluator::computeStats(res);
+    return queryString;
+}
+
+cardStat SimpleEvaluator::evaluate(RPQTree *query) {
+    StringVec queryNodeList = getQueryNodeList(query);
+
+    // First search the cache to see if an answer to this query was already calculated.
+    std::string queryString = getQueryString(queryNodeList);
+    auto search = cache.find(queryString);
+    if ( search != cache.end()) {
+        return search->second;
+    }
+    else {
+        RPQTree* logicalPlan = getLogicalPlan(queryNodeList);
+
+        if(logicalPlan == nullptr){
+            //Something went wrong
+            std::cerr << "Error: getLogicalPlan(query) returned nullptr,";
+            std::cerr << " evaluating with default plan.";
+            logicalPlan == query;
+        }
+        auto res = evaluate_aux(logicalPlan);
+        cardStat result = SimpleEvaluator::computeStats(res);
+        cache.emplace(queryString, result);
+        return result;
+    }
 }
